@@ -1,59 +1,39 @@
-const WebSocket = require('ws');
-const port = 8080; // Set the desired port 
-const wss = new WebSocket.Server({ port });
-// Shared state of the to-do list 
-let todos = ''
+const express = require('express');
+const { exec } = require('child_process');
 
-const game = require('./Models/game')
+const app = express();
+const PORT = 5000;
 
-const express = require('express')
-let totalUser = 0;
-const mongoose = require('mongoose');
-const games = [];
-mongoose.connect("mongodb://localhost:27017/chess-db").then(
-    console.log('connected')
-)
+app.use(express.json());
+const cors = require('cors');
 
-wss.on('listening', () => {
-    console.log(`WebSocket server is listening on port ${port}`);
-});
-wss.on('connection', ws => {
-    totalUser++;
-    // Send the current to-do list to the newly connected client 
-    ws.send(JSON.stringify(todos));
-    console.log(totalUser)
-    ws.on('message',async (message) => {
-        const receivedMessage = JSON.parse(message); 
-    
-        // Convert the message to a string 
-        console.log(receivedMessage);
-        if (receivedMessage === 'reset!*(@h9890138ch1908') {
-            // Reset the to-do list 
-            todos = ''
-            
-        } else {
-            console.log(receivedMessage)
-            // Add the new to-do item to the shared state 
-            todos = receivedMessage;
+app.use(cors());
 
-            // const result = await game.create({fenString: todos})
-            const g1 = new game({fenString: receivedMessage})
-            g1.save();
-            
+app.post('/getMove', (req, res) => {
+    const fen = req.body.fen;
+    console.log(fen);
+
+    const stockfishPath = 'C:\\new chess_project\\socket\\stockfish\\stockfish-windows-x86-64.exe';
+
+    const stockfishProcess = exec(`"${stockfishPath}"`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing Stockfish: ${error}`);
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
-        // Broadcast the updated to-do list to all connected clients 
-        wss.clients.forEach(client => {
-            client.send(JSON.stringify(todos));
-        });
+
+        const bestMove = stdout.trim();
+        console.log(bestMove);
+        res.json({ bestMove });
     });
-    ws.on('close', async() => {
-        totalUser--;
-        console.log(totalUser)
-        // On WebSocket disconnect, save the games array to the database
-        const gameSave = await game.create({fenString: JSON.stringify(games)});
-    
-        console.log(gameSave)
-    })
+
+    stockfishProcess.stdin.write('uci\n');
+    stockfishProcess.stdin.write('setoption name Skill Level value 20\n');
+    stockfishProcess.stdin.write(`position fen ${fen}\n`);
+    stockfishProcess.stdin.write('d\n');  // Display current board to check settings
+    stockfishProcess.stdin.write('go movetime 100000\n');
+    stockfishProcess.stdin.write('quit\n');
 });
 
-
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
