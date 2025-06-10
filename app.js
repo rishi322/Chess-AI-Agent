@@ -1,23 +1,39 @@
-const express = require('express')
+const express = require('express');
+const { exec } = require('child_process');
+
 const app = express();
-const cors = require('cors')
-const mongoose = require('mongoose')
+const PORT = 5000;
 
-mongoose.connect("mongodb://localhost:27017/chess-db").then(console.log('connected'))
-app.use(express.urlencoded({extended:false}))
 app.use(express.json());
+const cors = require('cors');
 
-app.use(cors())
-app.use('/games',require('./Routes/games'))
+app.use(cors());
 
+app.post('/getMove', (req, res) => {
+    const fen = req.body.fen;
+    console.log(fen);
 
-app.use('/User',require('./Routes/user'));
+    const stockfishPath = 'C:\\new chess_project\\socket\\stockfish\\stockfish-windows-x86-64.exe';
 
-app.get('/',(req,res)=>{
+    const stockfishProcess = exec(`"${stockfishPath}"`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing Stockfish: ${error}`);
+            return res.status(500).json({ error: 'Internal Server Error' });
+        }
 
-  console.log('this is home')
-})
+        const bestMove = stdout.trim();
+        console.log(bestMove);
+        res.json({ bestMove });
+    });
 
-app.listen(3000,()=>{
-  console.log('server is listening on port 3000')
-})
+    stockfishProcess.stdin.write('uci\n');
+    stockfishProcess.stdin.write('setoption name Skill Level value 20\n');
+    stockfishProcess.stdin.write(`position fen ${fen}\n`);
+    stockfishProcess.stdin.write('d\n');  // Display current board to check settings
+    stockfishProcess.stdin.write('go movetime 100000\n');
+    stockfishProcess.stdin.write('quit\n');
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
