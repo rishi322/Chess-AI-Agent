@@ -12,7 +12,7 @@ app.post('/getMove', (req, res) => {
     const fen = req.body.fen;
     console.log('Received FEN:', fen);
 
-    const stockfishPath = 'C:\\new chess_project\\socket\\stockfish\\stockfish-windows-x86-64.exe';
+    const stockfishPath = "./stockfish/stockfish-windows-x86-64.exe";
     const stockfish = spawn(stockfishPath);
 
     let output = '';
